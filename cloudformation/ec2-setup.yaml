@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 Instance with Node.js and Nginx
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair
+
+Resources:
+  NotesAppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      ImageId: ami-0c02fb55956c7d316 # Amazon Linux 2
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          amazon-linux-extras install epel -y
+          curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+          yum install -y nodejs nginx git
+          systemctl enable nginx
+          systemctl start nginx
+          cd /home/ec2-user
+          git clone https://github.com/ikkurthi-gopi25/react-native-notes-app.git
+          cd react-native-notes-app
+          npm install -g pm2
+          npm install
+          pm2 start index.js --name notes-app
+          cp nginx/notes-app.conf /etc/nginx/conf.d/notes-app.conf
+          systemctl restart nginx
+      Tags:
+        - Key: Name
+          Value: NotesAppServer
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP, HTTPS and SSH
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
